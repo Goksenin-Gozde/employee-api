@@ -17,6 +17,8 @@ import org.mockito.junit.MockitoJUnitRunner;
 import org.modelmapper.ModelMapper;
 
 import java.time.LocalDate;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Optional;
 
 import static org.junit.Assert.assertEquals;
@@ -51,20 +53,20 @@ public class LeaveRequestServiceTest {
 
         leaveRequestDto = new LeaveRequestDto();
         leaveRequestDto.setEmployeeId(employee.getId());
-        leaveRequestDto.setStartDate(LocalDate.of(2022, 1, 1));
-        leaveRequestDto.setEndDate(LocalDate.of(2022, 1, 5));
+        leaveRequestDto.setStartDate(LocalDate.of(2023, 2, 3));
+        leaveRequestDto.setEndDate(LocalDate.of(2023, 2, 5));
         leaveRequestDto.setTotalLeaveDays(5);
 
         leaveRequest = new LeaveRequest();
         leaveRequest.setEmployee(employee);
-        leaveRequest.setStartDate(LocalDate.of(2022, 1, 1));
-        leaveRequest.setEndDate(LocalDate.of(2022, 1, 5));
+        leaveRequest.setStartDate(LocalDate.of(2023, 2, 3));
+        leaveRequest.setEndDate(LocalDate.of(2023, 2, 5));
         leaveRequest.setTotalLeaveDays(5);
 
         LeaveRequest existingLeaveRequest = new LeaveRequest();
         existingLeaveRequest.setEmployee(employee);
-        existingLeaveRequest.setStartDate(LocalDate.of(2022, 1, 1));
-        existingLeaveRequest.setEndDate(LocalDate.of(2022, 1, 5));
+        existingLeaveRequest.setStartDate(LocalDate.of(2023, 2, 3));
+        existingLeaveRequest.setEndDate(LocalDate.of(2023, 2, 5));
         existingLeaveRequest.setTotalLeaveDays(5);
     }
 
@@ -90,6 +92,16 @@ public class LeaveRequestServiceTest {
     @Test(expected = InvalidLeaveRequestException.class)
     public void testCreateLeaveRequest_startDateInPast() {
         leaveRequestDto.setStartDate(LocalDate.of(2021, 12, 31));
+        when(employeeRepository.findById(leaveRequest.getEmployee().getId())).thenReturn(Optional.ofNullable(employee));
+
+        leaveRequestService.createLeaveRequest(leaveRequestDto);
+    }
+
+    @Test(expected = InvalidLeaveRequestException.class)
+    public void testCreateLeaveRequest_exceedingLeaveRequest() {
+        leaveRequestDto.setStartDate(LocalDate.of(2021, 12, 31));
+        leaveRequestDto.setEndDate(LocalDate.of(2025, 12, 31));
+        when(employeeRepository.findById(leaveRequest.getEmployee().getId())).thenReturn(Optional.ofNullable(employee));
 
         leaveRequestService.createLeaveRequest(leaveRequestDto);
     }

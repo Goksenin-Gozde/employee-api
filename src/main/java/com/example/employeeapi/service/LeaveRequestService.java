@@ -16,6 +16,8 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
+import java.util.List;
+import java.util.Objects;
 
 @Service
 public class LeaveRequestService {
@@ -32,9 +34,18 @@ public class LeaveRequestService {
         this.modelMapper = modelMapper;
     }
 
+    public List<LeaveRequest> list() {
+        return leaveRequestRepository.findAll();
+    }
+
     public LeaveRequest createLeaveRequest(LeaveRequestDto leaveRequestDto) {
         Employee employee = employeeRepository.findById(leaveRequestDto.getEmployeeId())
                 .orElseThrow(() -> new EmployeeNotFoundException("Employee not found"));
+
+        if (Objects.isNull(leaveRequestDto.getTotalLeaveDays())) {
+            int totalLeaveDays = DateHelper.getDaysBetween(leaveRequestDto.getStartDate(), leaveRequestDto.getEndDate());
+            leaveRequestDto.setTotalLeaveDays(totalLeaveDays);
+        }
 
         LocalDate today = LocalDate.now();
         LocalDate hireDate = employee.getHireDate();
@@ -54,17 +65,35 @@ public class LeaveRequestService {
         }
 
         LeaveRequest leaveRequest = modelMapper.map(leaveRequestDto, LeaveRequest.class);
+        leaveRequest.setStatus(LeaveRequestStatus.WAITING_FOR_APPROVAL);
 
         return leaveRequestRepository.save(leaveRequest);
     }
 
 
-    public LeaveRequest updateLeaveRequest(Long id, LeaveRequest leaveRequest) {
+    public LeaveRequest updateLeaveRequest(Long id, LeaveRequestDto leaveRequestDto) {
         LeaveRequest existingLeaveRequest = leaveRequestRepository.findById(id)
                 .orElseThrow(() -> new LeaveRequestNotFoundException("Leave request not found"));
-        existingLeaveRequest.setStartDate(leaveRequest.getStartDate());
-        existingLeaveRequest.setEndDate(leaveRequest.getEndDate());
-        existingLeaveRequest.setReason(leaveRequest.getReason());
+
+        if (Objects.nonNull(leaveRequestDto.getReason())) {
+            existingLeaveRequest.setReason(leaveRequestDto.getReason());
+        }
+
+        LocalDate startDate = Objects.isNull(leaveRequestDto.getStartDate()) ? existingLeaveRequest.getStartDate()
+                : leaveRequestDto.getStartDate();
+        LocalDate endDate = Objects.isNull(leaveRequestDto.getEndDate()) ? existingLeaveRequest.getEndDate()
+                : leaveRequestDto.getEndDate();
+
+        if (!startDate.isEqual(existingLeaveRequest.getStartDate())
+                || !endDate.isEqual(existingLeaveRequest.getEndDate())) {
+
+            existingLeaveRequest.setStartDate(startDate);
+            existingLeaveRequest.setEndDate(endDate);
+
+            int totalLeaveDays = DateHelper.getDaysBetween(startDate, endDate);
+            existingLeaveRequest.setTotalLeaveDays(totalLeaveDays);
+        }
+
         return leaveRequestRepository.save(existingLeaveRequest);
     }
 
@@ -72,11 +101,14 @@ public class LeaveRequestService {
         LeaveRequest existingLeaveRequest = leaveRequestRepository.findById(id)
                 .orElseThrow(() -> new LeaveRequestNotFoundException("Leave request not found"));
 
+        if(existingLeaveRequest.getStatus().equals(LeaveRequestStatus.APPROVED)){
+            throw new InvalidLeaveRequestException("You can not update APPROVED leave requests.");
+        }
         Employee employee = existingLeaveRequest.getEmployee();
         if (status == LeaveRequestStatus.APPROVED) {
             LocalDate today = LocalDate.now();
             LocalDate hireDate = employee.getHireDate();
-            if (ChronoUnit.YEARS.between(hireDate, today) == 0 && existingLeaveRequest.getTotalLeaveDays() > 5) {
+            if (DateHelper.getDaysBetween(hireDate, today) == 0 && existingLeaveRequest.getTotalLeaveDays() > 5) {
                 throw new InvalidLeaveRequestException("Newly hired employees can only take 5 days of leave in advance.");
             }
             // This validation can be removed due to business needs. But keeping it and directing managers to approve or

@@ -5,6 +5,7 @@ import com.example.employeeapi.exception.EmployeeNotFoundException;
 import com.example.employeeapi.model.EmployeeDto;
 import com.example.employeeapi.repository.EmployeeRepository;
 import com.example.employeeapi.service.EmployeeService;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.modelmapper.ModelMapper;
@@ -18,12 +19,12 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.when;
 
 @RunWith(SpringRunner.class)
 @SpringBootTest
@@ -38,65 +39,64 @@ public class EmployeeServiceTest {
     @MockBean
     private EmployeeRepository employeeRepository;
 
+    private Employee employee;
+    private EmployeeDto employeeDto;
+
+
+    @Before
+    public void setUp() {
+        employee = new Employee();
+        employee.setId(1L);
+        employee.setName("John Doe");
+        employee.setHireDate(LocalDate.of(2020, 1, 1));
+        employee.setRemainingLeaveDays(20);
+
+        employeeDto = new EmployeeDto("John Doe2", LocalDate.now(), 0);
+    }
+
+
     @Test
     public void testCreateEmployee() {
-        // given
         LocalDate hireDate = LocalDate.of(2020, 1, 1);
-        EmployeeDto employeeDto = EmployeeDto.builder()
-                .name("John Doe")
-                .hireDate(hireDate)
-                .build();
-        Employee savedEmployee = Employee.builder()
-                .id(1L)
-                .name("John Doe")
-                .hireDate(hireDate)
-                .remainingLeaveDays(15)
-                .build();
-        doReturn(savedEmployee).when(employeeRepository).save(any(Employee.class));
 
-        // when
+        doReturn(employee).when(employeeRepository).save(any(Employee.class));
+
         Employee result = employeeService.createEmployee(employeeDto);
 
-        // then
-        assertThat(result.getName()).isEqualTo("John Doe");
-        assertThat(result.getHireDate()).isEqualTo(hireDate);
-        assertThat(result.getRemainingLeaveDays()).isEqualTo(15);
+        assertEquals(result.getName(), "John Doe");
+        assertEquals(result.getHireDate(), hireDate);
+        assertEquals(Optional.ofNullable(result.getRemainingLeaveDays()), Optional.of(20));
     }
 
     @Test
     public void testUpdateEmployee() {
-        // given
-        Employee employee = Employee.builder()
-                .id(1L)
-                .name("John Doe")
+
+        EmployeeDto updatedEmployee = EmployeeDto.builder()
+                .name("Jane Doe")
                 .hireDate(LocalDate.of(2020, 1, 1))
                 .remainingLeaveDays(15)
                 .build();
+
         doReturn(Optional.of(employee)).when(employeeRepository).findById(eq(1L));
         doReturn(employee).when(employeeRepository).save(eq(employee));
 
-        // when
-        Employee result = employeeService.updateEmployee(1L, employee);
+        Employee result = employeeService.updateEmployee(1L, updatedEmployee);
 
-        // then
-        assertThat(result.getId()).isEqualTo(1L);
-        assertThat(result.getName()).isEqualTo("John Doe");
-        assertThat(result.getHireDate()).isEqualTo(LocalDate.of(2020, 1, 1));
+        assertEquals(Optional.ofNullable(result.getId()), Optional.of(1L));
+        assertEquals(result.getName(), "Jane Doe");
+        assertEquals(result.getHireDate(), LocalDate.of(2020, 1, 1));
     }
 
     @Test
     public void testGetAllEmployees() {
-        // Given
         List<Employee> employees = Arrays.asList(
                 new Employee(1L, "John Doe", LocalDate.now(), 15),
                 new Employee(2L, "Jane Smith", LocalDate.now(), 18)
         );
         when(employeeRepository.findAll()).thenReturn(employees);
 
-        // When
-        List<EmployeeDto> employeeDtos = employeeService.getAllEmployees();
+        List<Employee> employeeDtos = employeeService.getAllEmployees();
 
-        // Then
         assertEquals(2, employeeDtos.size());
         assertEquals("John Doe", employeeDtos.get(0).getName());
         assertEquals("Jane Smith", employeeDtos.get(1).getName());
@@ -104,53 +104,45 @@ public class EmployeeServiceTest {
 
     @Test
     public void testGetEmployeeById() {
-        // Given
         when(employeeRepository.findById(1L)).thenReturn(Optional.of(new Employee(1L, "John Doe", LocalDate.now(), 15)));
 
-        // When
-        EmployeeDto employeeDto = employeeService.getEmployeeById(1L);
+        Employee employeeDto = employeeService.getEmployeeById(1L);
 
-        // Then
         assertEquals("John Doe", employeeDto.getName());
     }
 
     @Test
     public void testGetEmployeeById_EmployeeNotFound() {
-        // Given
         when(employeeRepository.findById(1L)).thenReturn(Optional.empty());
 
-        // When/Then
         assertThrows(EmployeeNotFoundException.class, () -> employeeService.getEmployeeById(1L));
     }
 
     @Test
     public void whenUpdateEmployee_thenReturnUpdatedEmployee() {
-        // Arrange
-        EmployeeDto employeeDto = new EmployeeDto("John Doe", LocalDate.now(), 0);
+        when(employeeService.createEmployee(employeeDto)).thenReturn(employee);
+        doReturn(employee).when(employeeRepository).save(any(Employee.class));
         Employee createdEmployee = employeeService.createEmployee(employeeDto);
 
         EmployeeDto updatedEmployeeDto = new EmployeeDto("Jane Doe", LocalDate.now(), 0);
+        when(employeeRepository.findById(createdEmployee.getId())).thenReturn(Optional.of(createdEmployee));
 
-        // Act
-        Employee updatedEmployee = employeeService.updateEmployee(createdEmployee.getId(), modelMapper.map(updatedEmployeeDto, Employee.class));
+        Employee updatedEmployee = employeeService.updateEmployee(createdEmployee.getId(), modelMapper.map(updatedEmployeeDto, EmployeeDto.class));
 
-        // Assert
-        assertThat(updatedEmployee.getName()).isEqualTo(updatedEmployeeDto.getName());
-        assertThat(updatedEmployee.getHireDate()).isEqualTo(updatedEmployeeDto.getHireDate());
-        assertThat(updatedEmployee.getRemainingLeaveDays()).isEqualTo(createdEmployee.getRemainingLeaveDays());
+        assertEquals(updatedEmployee.getName(), updatedEmployeeDto.getName());
+        assertEquals(updatedEmployee.getHireDate(), updatedEmployeeDto.getHireDate());
+        assertEquals(updatedEmployee.getRemainingLeaveDays(), createdEmployee.getRemainingLeaveDays());
     }
 
     @Test(expected = EmployeeNotFoundException.class)
     public void whenDeleteEmployee_thenEmployeeNotFound() {
-        // Arrange
-        EmployeeDto employeeDto = new EmployeeDto("John Doe", LocalDate.now(), 0);
-        Employee createdEmployee = employeeService.createEmployee(employeeDto);
 
-        // Act
+        doReturn(employee).when(employeeRepository).save(any(Employee.class));
+        Employee createdEmployee = employeeService.createEmployee(employeeDto);
+        when(employeeRepository.findById(createdEmployee.getId())).thenReturn(Optional.ofNullable(null));
+
         employeeService.deleteEmployee(createdEmployee.getId());
         employeeService.getEmployeeById(createdEmployee.getId());
 
-        // Assert
-        // Exception is expected
     }
 }

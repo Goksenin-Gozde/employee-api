@@ -44,17 +44,23 @@ public class EmployeeService {
         return employeeRepository.save(newEmployee);
     }
 
-    private List<EmployeeDto> bulkUpdateEmployees(List<Employee> employees){
+    private List<EmployeeDto> bulkUpdateEmployees(List<Employee> employees) {
         List<Employee> savedEmployees = employeeRepository.saveAll(employees);
         return employeeListToEmployeeDtoList(savedEmployees);
     }
 
-    public Employee updateEmployee(Long id, Employee employee) {
+    public Employee updateEmployee(Long id, EmployeeDto employee) {
         Employee existingEmployee = employeeRepository.findById(id)
                 .orElseThrow(() -> new EmployeeNotFoundException("Employee not found"));
-        existingEmployee.setName(employee.getName());
-        existingEmployee.setHireDate(employee.getHireDate());
-        existingEmployee.setRemainingLeaveDays(employee.getRemainingLeaveDays());
+        if (Objects.nonNull(employee.getName())) {
+            existingEmployee.setName(employee.getName());
+        }
+        if (Objects.nonNull(employee.getHireDate())) {
+            existingEmployee.setHireDate(employee.getHireDate());
+        }
+        if (Objects.nonNull(employee.getRemainingLeaveDays())) {
+            existingEmployee.setRemainingLeaveDays(employee.getRemainingLeaveDays());
+        }
         return employeeRepository.save(existingEmployee);
     }
 
@@ -65,17 +71,17 @@ public class EmployeeService {
         employeeRepository.delete(existingEmployee);
     }
 
-    public List<EmployeeDto> getAllEmployees() {
+    public List<Employee> getAllEmployees() {
         List<Employee> employees = employeeRepository.findAll();
-        return employeeListToEmployeeDtoList(employees);
+        return employees;
     }
 
-    public EmployeeDto getEmployeeById(Long id) {
+    public Employee getEmployeeById(Long id) {
         Optional<Employee> employee = employeeRepository.findById(id);
         if (!employee.isPresent()) {
             throw new EmployeeNotFoundException("Employee not found");
         }
-        return modelMapper.map(employee.get(), EmployeeDto.class);
+        return employee.get();
     }
 
     @Scheduled(cron = "0 0 0 * * ?") // runs every night at midnight
@@ -86,13 +92,11 @@ public class EmployeeService {
             LocalDate hireDate = employee.getHireDate();
             LocalDate currentDate = LocalDate.now();
             int yearsWorked = Period.between(hireDate, currentDate).getYears();
-            if(yearsWorked >= 1 && yearsWorked <= 5) {
+            if (yearsWorked >= 1 && yearsWorked <= 5) {
                 employee.setRemainingLeaveDays(15);
-            }
-            else if(yearsWorked > 5 && yearsWorked <= 10) {
+            } else if (yearsWorked > 5 && yearsWorked <= 10) {
                 employee.setRemainingLeaveDays(18);
-            }
-            else {
+            } else {
                 employee.setRemainingLeaveDays(24);
             }
             employeesToUpdate.add(employee);
@@ -100,13 +104,13 @@ public class EmployeeService {
         bulkUpdateEmployees(employeesToUpdate);
     }
 
-    private List<EmployeeDto> employeeListToEmployeeDtoList(List<Employee> employees){
+    private List<EmployeeDto> employeeListToEmployeeDtoList(List<Employee> employees) {
         return employees.stream()
                 .map(employee -> modelMapper.map(employee, EmployeeDto.class)).collect(Collectors.toList());
 
     }
 
-    private List<Employee> employeeDtoListToEmployeeList(List<EmployeeDto> employeeDtos){
+    private List<Employee> employeeDtoListToEmployeeList(List<EmployeeDto> employeeDtos) {
         return employeeDtos.stream()
                 .map(employeeDto -> modelMapper.map(employeeDto, Employee.class)).collect(Collectors.toList());
     }

@@ -40,7 +40,7 @@ public class LeaveRequest {
     @Column(name = "reason", nullable = false)
     private LeaveRequestReason reason;
 
-    @Column(name = "note", nullable = false)
+    @Column(name = "note", nullable = true)
     private String note;
 
 }
