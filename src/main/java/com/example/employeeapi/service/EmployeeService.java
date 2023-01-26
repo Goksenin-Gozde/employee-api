@@ -32,7 +32,7 @@ public class EmployeeService {
 
     public Employee createEmployee(EmployeeDto employeeDto) {
 
-        LocalDate hireDate = Objects.isNull(employeeDto.getHireDate()) ? LocalDate.now() : employeeDto.getHireDate();
+        LocalDate hireDate = employeeDto.getHireDate();
         int remainingLeaveDays = DateHelper.calculateRemainingDaysForNewRecord(hireDate);
 
         Employee newEmployee = Employee.builder()
