@@ -1,10 +1,12 @@
 package com.example.employeeapi.service;
 
 import com.example.employeeapi.entity.Employee;
+import com.example.employeeapi.entity.LeaveRequest;
 import com.example.employeeapi.exception.EmployeeNotFoundException;
 import com.example.employeeapi.helper.DateHelper;
 import com.example.employeeapi.model.EmployeeDto;
 import com.example.employeeapi.repository.EmployeeRepository;
+import com.example.employeeapi.repository.LeaveRequestRepository;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -22,12 +24,14 @@ import java.util.stream.Collectors;
 public class EmployeeService {
 
     private final EmployeeRepository employeeRepository;
+    private final LeaveRequestRepository leaveRequestRepository;
     private final ModelMapper modelMapper;
 
     @Autowired
-    public EmployeeService(EmployeeRepository employeeRepository, ModelMapper modelMapper) {
+    public EmployeeService(EmployeeRepository employeeRepository, ModelMapper modelMapper, LeaveRequestRepository leaveRequestRepository) {
         this.employeeRepository = employeeRepository;
         this.modelMapper = modelMapper;
+        this.leaveRequestRepository = leaveRequestRepository;
     }
 
     public Employee createEmployee(EmployeeDto employeeDto) {
@@ -67,7 +71,9 @@ public class EmployeeService {
     public void deleteEmployee(Long id) {
         Employee existingEmployee = employeeRepository.findById(id)
                 .orElseThrow(() -> new EmployeeNotFoundException("Employee not found"));
+        List<LeaveRequest> leaveRequestList = leaveRequestRepository.findByEmployeeId(existingEmployee.getId());
 
+        leaveRequestRepository.deleteAll(leaveRequestList);
         employeeRepository.delete(existingEmployee);
     }
 
